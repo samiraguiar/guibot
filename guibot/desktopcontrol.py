@@ -758,10 +758,9 @@ class VNCDoToolDesktopControl(DesktopControl):
         if modifiers != None:
             self.keys_toggle(modifiers, True)
         for _ in range(count):
-            self._backend_obj.mousePress(button)
-            # BUG: the mouse button is pressed down forever (on LEFT)
+            self._backend_obj.mouseDown(button)
             time.sleep(toggle_timeout)
-            self.mouse_up(button)
+            self._backend_obj.mouseUp(button)
             time.sleep(click_timeout)
         if modifiers != None:
             self.keys_toggle(modifiers, False)
