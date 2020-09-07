@@ -114,9 +114,10 @@ class CVParameter(object):
         :raises: :py:class:`ValueError` if unsupported type is encountered
         """
         args = []
-        string_args = re.match(r"<value='(.+)' min='([\d.None]+)' max='([\d.None]+)'"
+        string_args = re.match(r"<value='(.+)' min='(-?[\d.None]+)' max='([\d.None]+)'"
                                r" delta='([\d.]+)' tolerance='([\d.]+)' fixed='(\w+)' enumerated='(\w+)'>",
                                raw).group(1, 2, 3, 4, 5, 6)
+
         for arg in string_args:
             if arg == "None":
                 arg = None
@@ -124,9 +125,9 @@ class CVParameter(object):
                 arg = True
             elif arg == "False":
                 arg = False
-            elif re.match(r"\d+$", arg):
+            elif re.match(r"-?\d+$", arg):
                 arg = int(arg)
-            elif re.match(r"[\d.]+", arg):
+            elif re.match(r"[\d.]+$", arg):
                 arg = float(arg)
             else:
                 arg = str(arg)
@@ -219,23 +220,23 @@ class Finder(LocalConfig):
             backend_name = GlobalConfig.find_backend
 
         if backend_name == "autopy":
-            finder = AutoPyFinder()
+            finder = AutoPyFinder(synchronize=False)
         elif backend_name == "contour":
-            finder = ContourFinder()
+            finder = ContourFinder(synchronize=False)
         elif backend_name == "template":
-            finder = TemplateFinder()
+            finder = TemplateFinder(synchronize=False)
         elif backend_name == "feature":
-            finder = FeatureFinder()
+            finder = FeatureFinder(synchronize=False)
         elif backend_name == "cascade":
-            finder = CascadeFinder()
+            finder = CascadeFinder(synchronize=False)
         elif backend_name == "text":
-            finder = TextFinder()
+            finder = TextFinder(synchronize=False)
         elif backend_name == "tempfeat":
-            finder = TemplateFeatureFinder()
+            finder = TemplateFeatureFinder(synchronize=False)
         elif backend_name == "deep":
-            finder = DeepFinder()
+            finder = DeepFinder(synchronize=False)
         elif backend_name == "hybrid":
-            finder = HybridFinder()
+            finder = HybridFinder(synchronize=False)
         else:
             raise UnsupportedBackendError("No '%s' backend is supported" % backend_name)
 
@@ -255,6 +256,7 @@ class Finder(LocalConfig):
                         param = param_string
                     finder.params[category][option] = param
 
+        finder.synchronize()
         return finder
 
     @staticmethod
