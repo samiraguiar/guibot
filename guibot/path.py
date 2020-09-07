@@ -113,3 +113,47 @@ class Path(object):
             raise FileNotFoundError('File ' + filename + ' not found')
 
         return None
+
+    def __iter__(self):
+        for p in self._target_paths:
+            yield p
+
+    def __len__(self):
+        return len(self._target_paths)
+
+
+class ScopedPath(object):
+    """
+    Class to be used to search for files
+    inside certain paths.
+    """
+    def __init__(self, *paths):
+        """
+        Create the class with the paths that the search will be
+        restricted to.
+
+        :param paths: list of paths that the search will use
+        """
+        self._paths = paths
+
+    def __enter__(self):
+        """
+        Enter the restricted context, where any search will be
+        restricted to the paths used to initialize this class.
+        """
+        path_searcher = Path()
+        self._old_paths = list(path_searcher)
+        path_searcher.clear()
+        for p in self._paths:
+            path_searcher.add_path(p)
+        return path_searcher
+
+    def __exit__(self, *args):
+        """
+        Exit this context and restore the original paths.
+
+        :param args: default args passed when exiting context
+        """
+        path_searcher = Path()
+        for p in self._old_paths:
+            path_searcher.add_path(p)
