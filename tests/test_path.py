@@ -17,9 +17,11 @@
 import os
 import sys
 import unittest
+import shutil
+from tempfile import mkdtemp, mkstemp
 
 import common_test
-from guibot.path import Path
+from guibot.path import Path, ScopedPath
 from guibot.errors import *
 
 
@@ -102,6 +104,47 @@ class PathTest(unittest.TestCase):
         # Fail if the path restriction results in an empty set
         target = self.path.search('shape_missing_box.png', silent=True)
         self.assertIsNone(target)
+
+
+class ScopedPathTest(unittest.TestCase):
+    def test_scoped_paths(self):
+        """
+        Test if scoped paths work correctly.
+        """
+        # temporary directory 1
+        tmp_dir1 = mkdtemp()
+        fd_tmp_file1, tmp_file1 = mkstemp(prefix=f"{tmp_dir1}/", suffix=".txt")
+        os.close(fd_tmp_file1)
+
+        # temporary directory 2
+        tmp_dir2 = mkdtemp()
+        fd_tmp_file2, tmp_file2 = mkstemp(prefix=f"{tmp_dir2}/", suffix=".txt")
+        os.close(fd_tmp_file2)
+
+        filename1 = os.path.basename(tmp_file1)
+        filename2 = os.path.basename(tmp_file2)
+        try:
+            path = Path()
+            path.add_path(tmp_dir1)
+            path.add_path(tmp_dir2)
+            # sanity check - assert that normal path resolution works
+            self.assertEqual(path.search(filename1), tmp_file1)
+            self.assertEqual(path.search(filename2), tmp_file2)
+
+            # now check that only one of these are found in our scope
+            with ScopedPath(tmp_dir2) as p:
+                self.assertEqual(p.search(filename2), tmp_file2)
+                self.assertRaises(FileNotFoundError, p.search, filename1)
+
+            # finally check that we've correctly restored everything on exit
+            self.assertEqual(path.search(filename1), tmp_file1)
+            self.assertEqual(path.search(filename2), tmp_file2)
+        finally:
+            # clean up
+            Path().remove_path(os.path.dirname(tmp_dir1))
+            shutil.rmtree(tmp_dir1)
+            shutil.rmtree(tmp_dir2)
+
 
 if __name__ == '__main__':
     unittest.main()
