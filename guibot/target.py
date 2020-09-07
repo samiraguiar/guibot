@@ -494,7 +494,7 @@ class Chain(Target):
         super(Chain, self).__init__(match_settings)
         self.target_name = target_name
         self._steps = []
-        self.load(self.target_name+".steps")
+        self.load(self.target_name)
 
     def __str__(self):
         """Provide the target name."""
@@ -512,34 +512,57 @@ class Chain(Target):
         :raises: :py:class:`errors.UnsupportedBackendError` if a chain step is of unknown type
         :raises: :py:class:`IOError` if an chain step line cannot be parsed
         """
-        if not os.path.exists(steps_filename):
-            steps_filename = Path().search(steps_filename)
+        # make sure we have the correct file
+        steps_filename = self.resolve_stepsfile(steps_filename)
+        stepsfiles_seen = [steps_filename]
 
         with open(steps_filename) as f:
-            for step in f:
-                dataconfig = re.split(r'\t+', step.rstrip('\t\n'))
-                if len(dataconfig) != 2:
-                    raise IOError("Invalid chain step line '%s'" % dataconfig[0])
-                data, config = re.split(r'\t+', step.rstrip('\t\n'))
+            lines = f.readlines()
 
-                super(Chain, self).load(config)
-                self.use_own_settings = False
+        for step in lines:
+            dataconfig = re.split(r'\t+', step.rstrip('\t\n'))
 
-                step_backend = self.match_settings.params["find"]["backend"]
-                if step_backend in ["autopy", "contour", "template", "feature", "tempfeat"]:
-                    data_and_config = Image(data, match_settings=self.match_settings)
-                elif step_backend in ["cascade", "deep"]:
-                    data_and_config = Pattern(data, match_settings=self.match_settings)
-                elif step_backend == "text":
-                    data_and_config = Text(data, match_settings=self.match_settings)
-                else:
-                    # in particular, we cannot have a chain within the chain since it is not useful
-                    raise UnsupportedBackendError("No target step type for '%s' backend" % step_backend)
+            # read a nested steps file and append to this chain
+            if dataconfig[0].endswith(".steps"):
+                nested_steps_filename = self.resolve_stepsfile(dataconfig[0])
+                # avoid infinite loops
+                if not nested_steps_filename in stepsfiles_seen:
+                    stepsfiles_seen.append(nested_steps_filename)
+                    with open(nested_steps_filename) as f:
+                        lines += f.readlines()
+                continue
 
-                self._steps.append(data_and_config)
+            if len(dataconfig) != 2:
+                raise IOError("Invalid chain step line '%s'" % dataconfig[0])
+
+            data, config = dataconfig
+            super(Chain, self).load(config)
+            self.use_own_settings = False
+
+            step_backend = self.match_settings.params["find"]["backend"]
+            if step_backend in ["autopy", "contour", "template", "feature", "tempfeat"]:
+                data_and_config = Image(data, match_settings=self.match_settings)
+            elif step_backend in ["cascade", "deep"]:
+                data_and_config = Pattern(data, match_settings=self.match_settings)
+            elif step_backend == "text":
+                data_and_config = Text(data, match_settings=self.match_settings)
+            else:
+                # in particular, we cannot have a chain within the chain since it is not useful
+                raise UnsupportedBackendError("No target step type for '%s' backend" % step_backend)
+
+            self._steps.append(data_and_config)
 
         # now define own match configuration
         super(Chain, self).load(steps_filename)
+
+    def resolve_stepsfile(self, filename):
+        if not filename.endswith(".steps"):
+            filename += ".steps"
+
+        if not os.path.exists(filename):
+            filename = Path().search(filename)
+
+        return filename
 
     def save(self, steps_filename):
         """

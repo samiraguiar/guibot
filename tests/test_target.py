@@ -329,6 +329,33 @@ class ChainTest(unittest.TestCase):
         finally:
             Path().remove_path(os.path.dirname(text_file))
 
+    def test_nested_stepsfiles(self):
+        """
+        Test that stepsfiles within stepsfiles are correctly handled.
+        """
+        # phisically create the files -- mocking os.open() would be too cumbersome
+        stepsfile_three = self._create_temp_file(extension=".steps",
+            contents="item_for_text.txt	some_text_matchfile.match")
+
+        # second step file contains a reference to the third
+        stepsfile_two = self._create_temp_file(extension=".steps",
+            contents=stepsfile_three)
+
+        stepsfile_one_contents = [
+            "item_for_contour.png	some_contour_matchfile.match",
+            "item_for_cascade.xml	some_cascade_matchfile.match",
+            # first step file contains a reference to the second
+            stepsfile_two
+        ]
+
+        # second step file contains a reference to the third
+        stepsfile_one = self._create_temp_file(prefix=self.stepsfile_name,
+            extension=".steps", contents=os.linesep.join(stepsfile_one_contents))
+
+        chain = Chain(stepsfile_one)
+        expected_types = [Image, Pattern, Text]
+        self.assertEqual([type(s) for s in chain._steps], expected_types)
+
     def _build_chain(self, stepsfile_contents, stepsfile=None):
         """
         Create an instance of :py:class:`guibot.target.Chain` to be used by the tests.
